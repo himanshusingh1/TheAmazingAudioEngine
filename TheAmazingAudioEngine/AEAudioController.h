@@ -26,507 +26,507 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-
+    
 #import <AudioToolbox/AudioToolbox.h>
 #import <AudioUnit/AudioUnit.h>
 #import <Foundation/Foundation.h>
 #import "AEMessageQueue.h"
-
-@class AEAudioController;
-
+    
+    @class AEAudioController;
+    
 #pragma mark - Notifications and constants
-
-/*!
- * @var AEAudioControllerSessionInterruptionBeganNotification
- *  Notification that the audio session has been interrupted.
- *
- * @var AEAudioControllerSessionInterruptionEndedNotification
- *  Notification that the audio session interrupted has ended, and control
- *  has been passed back to the application.
- *
- * @var AEAudioControllerSessionRouteChangeNotification
- *  Notification that the system's audio route has changed.
- *
- * @var AEAudioControllerDidRecreateGraphNotification
- *  Notification that AEAudioController has shut down and re-initialized
- *  the audio graph. This can happen in response to some unexpected system 
- *  errors. Objects that use the graph directly (such as creating audio units)
- *  should re-initialise the audio units.
- *
- * @var AEAudioControllerErrorOccurredNotification
- *  Some asynchronous error occurred, such as when the user denies your app
- *  record access. The userInfo dictionary of the notification will contain
- *  the AVAudioControllerErrorKey, an NSError.
- */
-extern NSString * const AEAudioControllerSessionInterruptionBeganNotification;
-extern NSString * const AEAudioControllerSessionInterruptionEndedNotification;
-extern NSString * const AEAudioControllerSessionRouteChangeNotification;
-extern NSString * const AEAudioControllerDidRecreateGraphNotification;
-extern NSString * const AEAudioControllerErrorOccurredNotification;
     
-/*!
- * Keys to be used with notifications
- */
-extern NSString * const AEAudioControllerErrorKey;
-
-/*!
- * Errors
- */
-extern NSString * const AEAudioControllerErrorDomain;
-enum {
-    AEAudioControllerErrorInputAccessDenied
-};
+    /*!
+     * @var AEAudioControllerSessionInterruptionBeganNotification
+     *  Notification that the audio session has been interrupted.
+     *
+     * @var AEAudioControllerSessionInterruptionEndedNotification
+     *  Notification that the audio session interrupted has ended, and control
+     *  has been passed back to the application.
+     *
+     * @var AEAudioControllerSessionRouteChangeNotification
+     *  Notification that the system's audio route has changed.
+     *
+     * @var AEAudioControllerDidRecreateGraphNotification
+     *  Notification that AEAudioController has shut down and re-initialized
+     *  the audio graph. This can happen in response to some unexpected system
+     *  errors. Objects that use the graph directly (such as creating audio units)
+     *  should re-initialise the audio units.
+     *
+     * @var AEAudioControllerErrorOccurredNotification
+     *  Some asynchronous error occurred, such as when the user denies your app
+     *  record access. The userInfo dictionary of the notification will contain
+     *  the AVAudioControllerErrorKey, an NSError.
+     */
+    extern NSString * const AEAudioControllerSessionInterruptionBeganNotification;
+    extern NSString * const AEAudioControllerSessionInterruptionEndedNotification;
+    extern NSString * const AEAudioControllerSessionRouteChangeNotification;
+    extern NSString * const AEAudioControllerDidRecreateGraphNotification;
+    extern NSString * const AEAudioControllerErrorOccurredNotification;
     
-/*!
- * @enum AEInputMode
- *  Input mode
- *
- *  How to handle incoming audio
- *
- * @var AEInputModeFixedAudioFormat
- *  Receive input in the exact, fixed audio format you specified when initializing the
- *  audio controller, regardless of the number of input channels. For example, if you
- *  specified a stereo audio stream description, and you have a mono input source, the mono source
- *  will be bridged to stereo.
- *
- *  This is the default.
- *
- * @var AEInputModeVariableAudioFormat
- *  Audio format will change, depending on the number of input channels available.
- *  Mono audio sources will produce mono audio; 8-channel audio sources will produce 8-channel
- *  audio. You can determine how many channels are being provided by examining the
- *  `mNumberBuffers` field of the AudioBufferList for non-interleaved audio, or the
- *  `mNumberOfChannels` field of the first buffer within the AudioBufferList for 
- *  interleaved audio. Note that this might change without warning, as the user plugs/unplugs
- *  hardware.
- */
-typedef enum {
-    AEInputModeFixedAudioFormat,
-    AEInputModeVariableAudioFormat
-} AEInputMode;
-
+    /*!
+     * Keys to be used with notifications
+     */
+    extern NSString * const AEAudioControllerErrorKey;
+    
+    /*!
+     * Errors
+     */
+    extern NSString * const AEAudioControllerErrorDomain;
+    enum {
+        AEAudioControllerErrorInputAccessDenied
+    };
+    
+    /*!
+     * @enum AEInputMode
+     *  Input mode
+     *
+     *  How to handle incoming audio
+     *
+     * @var AEInputModeFixedAudioFormat
+     *  Receive input in the exact, fixed audio format you specified when initializing the
+     *  audio controller, regardless of the number of input channels. For example, if you
+     *  specified a stereo audio stream description, and you have a mono input source, the mono source
+     *  will be bridged to stereo.
+     *
+     *  This is the default.
+     *
+     * @var AEInputModeVariableAudioFormat
+     *  Audio format will change, depending on the number of input channels available.
+     *  Mono audio sources will produce mono audio; 8-channel audio sources will produce 8-channel
+     *  audio. You can determine how many channels are being provided by examining the
+     *  `mNumberBuffers` field of the AudioBufferList for non-interleaved audio, or the
+     *  `mNumberOfChannels` field of the first buffer within the AudioBufferList for
+     *  interleaved audio. Note that this might change without warning, as the user plugs/unplugs
+     *  hardware.
+     */
+    typedef enum {
+        AEInputModeFixedAudioFormat,
+        AEInputModeVariableAudioFormat
+    } AEInputMode;
+    
 #pragma mark - Callbacks and protocols
-
-/*!
- * Render callback
- *
- *  This is called when audio for the channel is required. As this is called from Core Audio's
- *  realtime thread, you should not wait on locks, allocate memory, or call any Objective-C or BSD
- *  code from this callback.
- *
- *  The channel object is passed through as a parameter.  You should not send it Objective-C
- *  messages, but if you implement the callback within your channel's \@implementation block, you 
- *  can gain direct access to the instance variables of the channel ("((MyChannel*)channel)->myInstanceVariable").
- *
- * @param channel           The channel object
- * @param audioController   The Audio Controller
- * @param time              The time the buffer will be played, automatically compensated for hardware latency.
- * @param frames            The number of frames required
- * @param audio             The audio buffer list - audio should be copied into the provided buffers
- * @return A status code
- */
-typedef OSStatus (*AEAudioRenderCallback) (__unsafe_unretained id    channel,
+    
+    /*!
+     * Render callback
+     *
+     *  This is called when audio for the channel is required. As this is called from Core Audio's
+     *  realtime thread, you should not wait on locks, allocate memory, or call any Objective-C or BSD
+     *  code from this callback.
+     *
+     *  The channel object is passed through as a parameter.  You should not send it Objective-C
+     *  messages, but if you implement the callback within your channel's \@implementation block, you
+     *  can gain direct access to the instance variables of the channel ("((MyChannel*)channel)->myInstanceVariable").
+     *
+     * @param channel           The channel object
+     * @param audioController   The Audio Controller
+     * @param time              The time the buffer will be played, automatically compensated for hardware latency.
+     * @param frames            The number of frames required
+     * @param audio             The audio buffer list - audio should be copied into the provided buffers
+     * @return A status code
+     */
+    typedef OSStatus (*AEAudioRenderCallback) (__unsafe_unretained id    channel,
+                                               __unsafe_unretained AEAudioController *audioController,
+                                               const AudioTimeStamp     *time,
+                                               UInt32                    frames,
+                                               AudioBufferList          *audio);
+    
+    typedef AEAudioRenderCallback AEAudioControllerRenderCallback; // Temporary alias
+    
+    /*!
+     * AEAudioPlayable protocol
+     *
+     *  The interface that a channel object must implement - this includes 'renderCallback',
+     *  which is a @link AEAudioRenderCallback C callback @endlink to be called when
+     *  audio is required.  The callback will be passed a reference to this object, so you should
+     *  implement it from within the \@implementation block to gain access to your
+     *  instance variables.
+     */
+    @protocol AEAudioPlayable <NSObject>
+    
+    /*!
+     * Reference to the render callback
+     *
+     *  This method must return a pointer to the render callback function that provides
+     *  the channel audio.  Always return the same pointer - this must not change over time.
+     *
+     * @return Pointer to a render callback function
+     */
+    @property (nonatomic, readonly) AEAudioRenderCallback renderCallback;
+    
+    @optional
+    
+    /*!
+     * Perform setup, to prepare for playback
+     *
+     *  Playable objects may implement this method to be notified when the object is
+     *  being added to the audio controller, or when the audio system is being restored
+     *  after a system error.
+     *
+     *  Use this method to allocate/initialise any required resources.
+     */
+    - (void)setupWithAudioController:(AEAudioController *)audioController;
+    
+    /*!
+     * Clean up resources
+     *
+     *  Playable objects may implement this method to be notified when the object is
+     *  being removed from the audio controller, or when the audio system is being
+     *  cleaned up after a system error.
+     *
+     *  Use this method to free up any resources used.
+     */
+    - (void)teardown;
+    
+    /*!
+     * Track volume
+     *
+     *  Changes are tracked by Key-Value Observing, so be sure to send KVO notifications
+     *  when the value changes (or use a readwrite property).
+     *
+     *  Range: 0.0 to 1.0
+     */
+    @property (nonatomic, readonly) float volume;
+    
+    /*!
+     * Track pan
+     *
+     *  Changes are tracked by Key-Value Observing, so be sure to send KVO notifications
+     *  when the value changes (or use a readwrite property).
+     *
+     *  Range: -1.0 (left) to 1.0 (right)
+     */
+    @property (nonatomic, readonly) float pan;
+    
+    /*
+     * Whether channel is currently playing
+     *
+     *  If this is NO, then the track will be silenced and no further render callbacks
+     *  will be performed until set to YES again.
+     *
+     *  Changes are tracked by Key-Value Observing, so be sure to send KVO notifications
+     *  when the value changes (or use a readwrite property).
+     */
+    @property (nonatomic, readonly) BOOL channelIsPlaying;
+    
+    /*
+     * Whether channel is muted
+     *
+     *  If YES, track will be silenced, but render callbacks will continue to be performed.
+     *
+     *  Changes are tracked by Key-Value Observing, so be sure to send KVO notifications
+     *  when the value changes (or use a readwrite property).
+     */
+    @property (nonatomic, readonly) BOOL channelIsMuted;
+    
+    /*
+     * The audio format for this channel
+     */
+    @property (nonatomic, readonly) AudioStreamBasicDescription audioDescription;
+    
+    @end
+    
+    static void * const AEAudioSourceInput         = ((void*)0x01); //!< Main audio input
+    static void * const AEAudioSourceMainOutput    = ((void*)0x02); //!< Main audio output
+    
+    /*!
+     * Audio receiver callback
+     *
+     *  This callback is used for notifying you of incoming audio (either from
+     *  the built-in microphone, or another input device), and outgoing audio that
+     *  is about to be played by the system.
+     *
+     *  The receiver object is passed through as a parameter.  You should not send it Objective-C
+     *  messages, but if you implement the callback within your receiver's \@implementation block, you
+     *  can gain direct access to the instance variables of the receiver ("((MyReceiver*)receiver)->myInstanceVariable").
+     *
+     *  Do not wait on locks, allocate memory, or call any Objective-C or BSD code.
+     *
+     * @param receiver   The receiver object
+     * @param audioController The Audio Controller
+     * @param source     The source of the audio: @link AEAudioSourceInput @endlink, @link AEAudioSourceMainOutput @endlink, an AEChannelGroupRef or an id<AEAudioPlayable>.
+     * @param time       The time the audio was received (for input), or the time it will be played (for output), automatically compensated for hardware latency.
+     * @param frames     The length of the audio, in frames
+     * @param audio      The audio buffer list
+     */
+    typedef void (*AEAudioReceiverCallback) (__unsafe_unretained id    receiver,
+                                             __unsafe_unretained AEAudioController *audioController,
+                                             void                     *source,
+                                             const AudioTimeStamp     *time,
+                                             UInt32                    frames,
+                                             AudioBufferList          *audio);
+    
+    typedef AEAudioReceiverCallback AEAudioControllerAudioCallback; // Temporary alias
+    
+    
+    /*!
+     * AEAudioReceiver protocol
+     *
+     *  The interface that a object must implement to receive incoming or outgoing output audio.
+     *  This includes 'receiverCallback', which is a @link AEAudioReceiverCallback C callback @endlink
+     *  to be called when audio is available.  The callback will be passed a reference to this object, so you
+     *  should implement it from within the \@implementation block to gain access to your instance variables.
+     */
+    @protocol AEAudioReceiver <NSObject>
+    
+    /*!
+     * Reference to the receiver callback
+     *
+     *  This method must return a pointer to the receiver callback function that accepts received
+     *  audio.  Always return the same pointer - this must not change over time.
+     *
+     * @return Pointer to an audio callback
+     */
+    @property (nonatomic, readonly) AEAudioReceiverCallback receiverCallback;
+    
+    @optional
+    
+    /*!
+     * Perform setup, to prepare to receive audio
+     *
+     *  Receiver objects may implement this method to be notified when the object is
+     *  being added to the audio controller, or when the audio system is being restored
+     *  after a system error.
+     *
+     *  Use this method to allocate/initialise any required resources.
+     */
+    - (void)setupWithAudioController:(AEAudioController *)audioController;
+    
+    /*!
+     * Clean up resources
+     *
+     *  Filter objects may implement this method to be notified when the object is
+     *  being removed from the audio controller, or when the audio system is being
+     *  cleaned up after a system error.
+     *
+     *  Use this method to free up any resources used.
+     */
+    - (void)teardown;
+    
+    @end
+    
+    /*!
+     * Filter audio producer
+     *
+     *  This defines the function passed to a AEAudioFilterCallback,
+     *  which is used to produce input audio to be processed by the filter.
+     *
+     * @param producerToken    An opaque pointer to be passed to the function
+     * @param audio            Audio buffer list to be written to
+     * @param frames           Number of frames to produce on input, number of frames produced on output
+     * @return A status code
+     */
+    typedef OSStatus (*AEAudioFilterProducer)(void            *producerToken,
+                                              AudioBufferList *audio,
+                                              UInt32          *frames);
+    
+    typedef AEAudioFilterProducer AEAudioControllerFilterProducer; // Temporary alias
+    
+    /*!
+     * Filter callback
+     *
+     *  This callback is used for audio filters.
+     *
+     *  A filter implementation must call the function pointed to by the *producer* argument,
+     *  passing *producerToken*, *audio*, and *frames* as arguments, in order to produce as much
+     *  audio is required to produce *frames* frames of output audio:
+     *
+     *          OSStatus status = producer(producerToken, audio, &frames);
+     *          if ( status != noErr ) return status;
+     *
+     *  Then the audio can be processed as desired.
+     *
+     *  The filter object is passed through as a parameter.  You should not send it Objective-C
+     *  messages, but if you implement the callback within your filter's \@implementation block, you
+     *  can gain direct access to the instance variables of the filter ("((MyFilter*)filter)->myInstanceVariable").
+     *
+     *  Do not wait on locks, allocate memory, or call any Objective-C or BSD code.
+     *
+     * @param filter    The filter object
+     * @param audioController The Audio Controller
+     * @param producer  A function pointer to be used to produce input audio
+     * @param producerToken An opaque pointer to be passed to the producer as the first argument
+     * @param time      The time the output audio will be played or the time input audio was received, automatically compensated for hardware latency.
+     * @param frames    The length of the required audio, in frames
+     * @param audio     The audio buffer list to write output audio to
+     * @return A status code
+     */
+    typedef OSStatus (*AEAudioFilterCallback)(__unsafe_unretained id    filter,
+                                              __unsafe_unretained AEAudioController *audioController,
+                                              AEAudioFilterProducer producer,
+                                              void                     *producerToken,
+                                              const AudioTimeStamp     *time,
+                                              UInt32                    frames,
+                                              AudioBufferList          *audio);
+    
+    typedef AEAudioFilterCallback AEAudioControllerFilterCallback; // Temporary alias
+    
+    /*!
+     * AEAudioFilter protocol
+     *
+     *  The interface that a filter must implement - this includes 'filterCallback', which is a
+     *  @link AEAudioFilterCallback C callback @endlink to be called when
+     *  audio is to be filtered.  The callback will be passed a reference to this object, so you should
+     *  implement it from within the \@implementation block to gain access to your
+     *  instance variables.
+     *
+     *  Note that it is your responsibility to make sure you are using the correct
+     *  AudioStreamBasicDescription for the source you are filtering.
+     */
+    @protocol AEAudioFilter <NSObject>
+    
+    /*!
+     * Reference to the filter callback
+     *
+     *  This method must return a pointer to the filter callback function that performs
+     *  audio manipulation.  Always return the same pointer - this must not change over time.
+     *
+     * @return Pointer to a variable speed filter callback
+     */
+    @property (nonatomic, readonly) AEAudioFilterCallback filterCallback;
+    
+    @optional
+    
+    /*!
+     * Perform setup, to prepare for playback
+     *
+     *  Filter objects may implement this method to be notified when the object is
+     *  being added to the audio controller, or when the audio system is being restored
+     *  after a system error.
+     *
+     *  Use this method to allocate/initialise any required resources.
+     */
+    - (void)setupWithAudioController:(AEAudioController *)audioController;
+    
+    /*!
+     * Clean up resources
+     *
+     *  Filter objects may implement this method to be notified when the object is
+     *  being removed from the audio controller, or when the audio system is being
+     *  cleaned up after a system error.
+     *
+     *  Use this method to free up any resources used.
+     */
+    - (void)teardown;
+    
+    @end
+    
+    
+    /*!
+     * @enum AEAudioTimingContext
+     *  Timing contexts
+     *
+     *  Used to indicate which context the audio system is in when a timing receiver
+     *  is called.
+     *
+     * @var AEAudioTimingContextInput
+     *  Input context: Audio system is about to process some incoming audio (from microphone, etc).
+     *
+     * @var AEAudioTimingContextOutput
+     *  Output context: Audio system is about to render the next buffer for playback.
+     *
+     */
+    typedef enum {
+        AEAudioTimingContextInput,
+        AEAudioTimingContextOutput
+    } AEAudioTimingContext;
+    
+    /*!
+     * Timing callback
+     *
+     *  This callback used to notify you when the system time advances.  When called
+     *  from an input context, it occurs before any input receiver calls are performed.
+     *  When called from an output context, it occurs before any output receivers are
+     *  performed.
+     *
+     *  The receiver object is passed through as a parameter.  You should not send it Objective-C
+     *  messages, but if you implement the callback within your receiver's \@implementation block, you
+     *  can gain direct access to the instance variables of the receiver ("((MyReceiver*)receiver)->myInstanceVariable").
+     *
+     *  Do not wait on locks, allocate memory, or call any Objective-C or BSD code.
+     *
+     * @param receiver  The receiver object
+     * @param audioController The Audio Controller
+     * @param time      The time the audio was received (for input), or the time it will be played (for output), automatically compensated for hardware latency.
+     * @param frames    The number of frames for the current block
+     * @param context   The timing context - either input, or output
+     */
+    typedef void (*AEAudioTimingCallback) (__unsafe_unretained id    receiver,
                                            __unsafe_unretained AEAudioController *audioController,
                                            const AudioTimeStamp     *time,
                                            UInt32                    frames,
-                                           AudioBufferList          *audio);
-
-typedef AEAudioRenderCallback AEAudioControllerRenderCallback; // Temporary alias
-
-/*!
- * AEAudioPlayable protocol
- *
- *  The interface that a channel object must implement - this includes 'renderCallback',
- *  which is a @link AEAudioRenderCallback C callback @endlink to be called when 
- *  audio is required.  The callback will be passed a reference to this object, so you should
- *  implement it from within the \@implementation block to gain access to your
- *  instance variables.
- */
-@protocol AEAudioPlayable <NSObject>
-
-/*!
- * Reference to the render callback
- *
- *  This method must return a pointer to the render callback function that provides
- *  the channel audio.  Always return the same pointer - this must not change over time.
- *
- * @return Pointer to a render callback function
- */
-@property (nonatomic, readonly) AEAudioRenderCallback renderCallback;
-
-@optional
-
-/*!
- * Perform setup, to prepare for playback
- *
- *  Playable objects may implement this method to be notified when the object is
- *  being added to the audio controller, or when the audio system is being restored
- *  after a system error.
- *
- *  Use this method to allocate/initialise any required resources.
- */
-- (void)setupWithAudioController:(AEAudioController *)audioController;
-
-/*!
- * Clean up resources
- *
- *  Playable objects may implement this method to be notified when the object is
- *  being removed from the audio controller, or when the audio system is being
- *  cleaned up after a system error.
- *
- *  Use this method to free up any resources used.
- */
-- (void)teardown;
-
-/*!
- * Track volume
- *
- *  Changes are tracked by Key-Value Observing, so be sure to send KVO notifications
- *  when the value changes (or use a readwrite property).
- *
- *  Range: 0.0 to 1.0
- */
-@property (nonatomic, readonly) float volume;
-
-/*!
- * Track pan
- *
- *  Changes are tracked by Key-Value Observing, so be sure to send KVO notifications
- *  when the value changes (or use a readwrite property).
- *
- *  Range: -1.0 (left) to 1.0 (right)
- */
-@property (nonatomic, readonly) float pan;
-
-/*
- * Whether channel is currently playing
- *
- *  If this is NO, then the track will be silenced and no further render callbacks
- *  will be performed until set to YES again.
- *
- *  Changes are tracked by Key-Value Observing, so be sure to send KVO notifications
- *  when the value changes (or use a readwrite property).
- */
-@property (nonatomic, readonly) BOOL channelIsPlaying;
-
-/*
- * Whether channel is muted
- *
- *  If YES, track will be silenced, but render callbacks will continue to be performed.
- *  
- *  Changes are tracked by Key-Value Observing, so be sure to send KVO notifications
- *  when the value changes (or use a readwrite property).
- */
-@property (nonatomic, readonly) BOOL channelIsMuted;
-
-/*
- * The audio format for this channel
- */
-@property (nonatomic, readonly) AudioStreamBasicDescription audioDescription;
-
-@end
-
-static void * const AEAudioSourceInput         = ((void*)0x01); //!< Main audio input
-static void * const AEAudioSourceMainOutput    = ((void*)0x02); //!< Main audio output
-
-/*!
- * Audio receiver callback
- *
- *  This callback is used for notifying you of incoming audio (either from 
- *  the built-in microphone, or another input device), and outgoing audio that
- *  is about to be played by the system.
- *
- *  The receiver object is passed through as a parameter.  You should not send it Objective-C
- *  messages, but if you implement the callback within your receiver's \@implementation block, you 
- *  can gain direct access to the instance variables of the receiver ("((MyReceiver*)receiver)->myInstanceVariable").
- *
- *  Do not wait on locks, allocate memory, or call any Objective-C or BSD code.
- *
- * @param receiver   The receiver object
- * @param audioController The Audio Controller
- * @param source     The source of the audio: @link AEAudioSourceInput @endlink, @link AEAudioSourceMainOutput @endlink, an AEChannelGroupRef or an id<AEAudioPlayable>.
- * @param time       The time the audio was received (for input), or the time it will be played (for output), automatically compensated for hardware latency.
- * @param frames     The length of the audio, in frames
- * @param audio      The audio buffer list
- */
-typedef void (*AEAudioReceiverCallback) (__unsafe_unretained id    receiver,
-                                         __unsafe_unretained AEAudioController *audioController,
-                                         void                     *source,
-                                         const AudioTimeStamp     *time,
-                                         UInt32                    frames,
-                                         AudioBufferList          *audio);
-
-typedef AEAudioReceiverCallback AEAudioControllerAudioCallback; // Temporary alias
+                                           AEAudioTimingContext      context);
     
-
-/*!
- * AEAudioReceiver protocol
- *
- *  The interface that a object must implement to receive incoming or outgoing output audio.
- *  This includes 'receiverCallback', which is a @link AEAudioReceiverCallback C callback @endlink 
- *  to be called when audio is available.  The callback will be passed a reference to this object, so you 
- *  should implement it from within the \@implementation block to gain access to your instance variables.
- */
-@protocol AEAudioReceiver <NSObject>
-
-/*!
- * Reference to the receiver callback
- *
- *  This method must return a pointer to the receiver callback function that accepts received
- *  audio.  Always return the same pointer - this must not change over time.
- *
- * @return Pointer to an audio callback
- */
-@property (nonatomic, readonly) AEAudioReceiverCallback receiverCallback;
+    typedef AEAudioTimingCallback AEAudioControllerTimingCallback; // Temporary alias
     
-@optional
+    /*!
+     * AEAudioTimingReceiver protocol
+     *
+     *  The interface that a object must implement to receive system time advance notices.
+     *  This includes 'timingReceiver', which is a @link AEAudioTimingCallback C callback @endlink
+     *  to be called when the system time advances.  The callback will be passed a reference to this object, so you
+     *  should implement it from within the \@implementation block to gain access to your instance variables.
+     */
+    @protocol AEAudioTimingReceiver <NSObject>
     
-/*!
- * Perform setup, to prepare to receive audio
- *
- *  Receiver objects may implement this method to be notified when the object is
- *  being added to the audio controller, or when the audio system is being restored
- *  after a system error.
- *
- *  Use this method to allocate/initialise any required resources.
- */
-- (void)setupWithAudioController:(AEAudioController *)audioController;
-
-/*!
- * Clean up resources
- *
- *  Filter objects may implement this method to be notified when the object is
- *  being removed from the audio controller, or when the audio system is being
- *  cleaned up after a system error.
- *
- *  Use this method to free up any resources used.
- */
-- (void)teardown;
-
-@end
-
-/*!
- * Filter audio producer
- *
- *  This defines the function passed to a AEAudioFilterCallback,
- *  which is used to produce input audio to be processed by the filter.
- *
- * @param producerToken    An opaque pointer to be passed to the function
- * @param audio            Audio buffer list to be written to
- * @param frames           Number of frames to produce on input, number of frames produced on output
- * @return A status code
- */
-typedef OSStatus (*AEAudioFilterProducer)(void            *producerToken,
-                                          AudioBufferList *audio,
-                                          UInt32          *frames);
-
-typedef AEAudioFilterProducer AEAudioControllerFilterProducer; // Temporary alias
-
-/*!
- * Filter callback
- *
- *  This callback is used for audio filters.
- *
- *  A filter implementation must call the function pointed to by the *producer* argument,
- *  passing *producerToken*, *audio*, and *frames* as arguments, in order to produce as much
- *  audio is required to produce *frames* frames of output audio:
- *
- *          OSStatus status = producer(producerToken, audio, &frames);
- *          if ( status != noErr ) return status;
- *
- *  Then the audio can be processed as desired.
- *
- *  The filter object is passed through as a parameter.  You should not send it Objective-C
- *  messages, but if you implement the callback within your filter's \@implementation block, you 
- *  can gain direct access to the instance variables of the filter ("((MyFilter*)filter)->myInstanceVariable").
- *
- *  Do not wait on locks, allocate memory, or call any Objective-C or BSD code.
- *
- * @param filter    The filter object
- * @param audioController The Audio Controller
- * @param producer  A function pointer to be used to produce input audio
- * @param producerToken An opaque pointer to be passed to the producer as the first argument
- * @param time      The time the output audio will be played or the time input audio was received, automatically compensated for hardware latency.
- * @param frames    The length of the required audio, in frames
- * @param audio     The audio buffer list to write output audio to
- * @return A status code
- */
-typedef OSStatus (*AEAudioFilterCallback)(__unsafe_unretained id    filter,
-                                          __unsafe_unretained AEAudioController *audioController,
-                                          AEAudioFilterProducer producer,
-                                          void                     *producerToken,
-                                          const AudioTimeStamp     *time,
-                                          UInt32                    frames,
-                                          AudioBufferList          *audio);
+    /*!
+     * Reference to the receiver callback
+     *
+     *  This method must return a pointer to the receiver callback function that accepts received
+     *  audio.  Always return the same pointer - this must not change over time.
+     *
+     * @return Pointer to an audio callback
+     */
+    @property (nonatomic, readonly) AEAudioTimingCallback timingReceiverCallback;
     
-typedef AEAudioFilterCallback AEAudioControllerFilterCallback; // Temporary alias
-
-/*!
- * AEAudioFilter protocol
- *
- *  The interface that a filter must implement - this includes 'filterCallback', which is a 
- *  @link AEAudioFilterCallback C callback @endlink to be called when
- *  audio is to be filtered.  The callback will be passed a reference to this object, so you should
- *  implement it from within the \@implementation block to gain access to your
- *  instance variables.
- *
- *  Note that it is your responsibility to make sure you are using the correct
- *  AudioStreamBasicDescription for the source you are filtering.
- */
-@protocol AEAudioFilter <NSObject>
-
-/*!
- * Reference to the filter callback
- *
- *  This method must return a pointer to the filter callback function that performs
- *  audio manipulation.  Always return the same pointer - this must not change over time.
- *
- * @return Pointer to a variable speed filter callback
- */
-@property (nonatomic, readonly) AEAudioFilterCallback filterCallback;
+    @end
     
-@optional
     
-/*!
- * Perform setup, to prepare for playback
- *
- *  Filter objects may implement this method to be notified when the object is
- *  being added to the audio controller, or when the audio system is being restored
- *  after a system error.
- *
- *  Use this method to allocate/initialise any required resources.
- */
-- (void)setupWithAudioController:(AEAudioController *)audioController;
-
-/*!
- * Clean up resources
- *
- *  Filter objects may implement this method to be notified when the object is
- *  being removed from the audio controller, or when the audio system is being
- *  cleaned up after a system error.
- *
- *  Use this method to free up any resources used.
- */
-- (void)teardown;
-
-@end
-
-
-/*!
- * @enum AEAudioTimingContext
- *  Timing contexts
- *
- *  Used to indicate which context the audio system is in when a timing receiver
- *  is called.
- *
- * @var AEAudioTimingContextInput
- *  Input context: Audio system is about to process some incoming audio (from microphone, etc).
- *
- * @var AEAudioTimingContextOutput
- *  Output context: Audio system is about to render the next buffer for playback.
- *
- */
-typedef enum {
-    AEAudioTimingContextInput,
-    AEAudioTimingContextOutput
-} AEAudioTimingContext;
-
-/*!
- * Timing callback
- *
- *  This callback used to notify you when the system time advances.  When called
- *  from an input context, it occurs before any input receiver calls are performed.
- *  When called from an output context, it occurs before any output receivers are
- *  performed.
- *
- *  The receiver object is passed through as a parameter.  You should not send it Objective-C
- *  messages, but if you implement the callback within your receiver's \@implementation block, you 
- *  can gain direct access to the instance variables of the receiver ("((MyReceiver*)receiver)->myInstanceVariable").
- *
- *  Do not wait on locks, allocate memory, or call any Objective-C or BSD code.
- *
- * @param receiver  The receiver object
- * @param audioController The Audio Controller
- * @param time      The time the audio was received (for input), or the time it will be played (for output), automatically compensated for hardware latency.
- * @param frames    The number of frames for the current block
- * @param context   The timing context - either input, or output
- */
-typedef void (*AEAudioTimingCallback) (__unsafe_unretained id    receiver,
-                                       __unsafe_unretained AEAudioController *audioController,
-                                       const AudioTimeStamp     *time,
-                                       UInt32                    frames,
-                                       AEAudioTimingContext      context);
+    /*!
+     * Channel group identifier
+     *
+     *  See @link AEAudioController::createChannelGroup @endlink for more info.
+     */
+    typedef struct _channel_group_t* AEChannelGroupRef;
     
-typedef AEAudioTimingCallback AEAudioControllerTimingCallback; // Temporary alias
-
-/*!
- * AEAudioTimingReceiver protocol
- *
- *  The interface that a object must implement to receive system time advance notices.
- *  This includes 'timingReceiver', which is a @link AEAudioTimingCallback C callback @endlink 
- *  to be called when the system time advances.  The callback will be passed a reference to this object, so you 
- *  should implement it from within the \@implementation block to gain access to your instance variables.
- */
-@protocol AEAudioTimingReceiver <NSObject>
-
-/*!
- * Reference to the receiver callback
- *
- *  This method must return a pointer to the receiver callback function that accepts received
- *  audio.  Always return the same pointer - this must not change over time.
- *
- * @return Pointer to an audio callback
- */
-@property (nonatomic, readonly) AEAudioTimingCallback timingReceiverCallback;
-
-@end
-
-
-/*!
- * Channel group identifier
- *
- *  See @link AEAudioController::createChannelGroup @endlink for more info.
- */
-typedef struct _channel_group_t* AEChannelGroupRef;
-
-@class AEAudioController;
-
+    @class AEAudioController;
+    
 #pragma mark -
-
-/*!
- @typedef AEAudioControllerOptions
- @brief Options for initializing.
- */
-typedef enum {
-    /// Whether to enable audio input from the microphone or another input device.
-    AEAudioControllerOptionEnableInput              = 1 << 0,
-    /// Whether to enable audio output.
-    AEAudioControllerOptionEnableOutput             = 1 << 1,
-    /// Whether to use the voice processing unit (see @link AEAudioController::voiceProcessingEnabled voiceProcessingEnabled @endlink and @link AEAudioController::voiceProcessingAvailable voiceProcessingAvailable @endlink).
-    AEAudioControllerOptionUseVoiceProcessing       = 1 << 2,
-    /// Whether to use the the actual hardware sample rate instead of converting.
-    AEAudioControllerOptionUseHardwareSampleRate    = 1 << 3,
-    /// Enable audio input from Bluetooth devices.
-    AEAudioControllerOptionEnableBluetoothInput     = 1 << 4,
-    /// Whether to allow mixing audio with other apps.
-    AEAudioControllerOptionAllowMixingWithOtherApps = 1 << 5,
-    /// Default options
-    AEAudioControllerOptionDefaults =
+    
+    /*!
+     @typedef AEAudioControllerOptions
+     @brief Options for initializing.
+     */
+    typedef enum {
+        /// Whether to enable audio input from the microphone or another input device.
+        AEAudioControllerOptionEnableInput              = 1 << 0,
+        /// Whether to enable audio output.
+        AEAudioControllerOptionEnableOutput             = 1 << 1,
+        /// Whether to use the voice processing unit (see @link AEAudioController::voiceProcessingEnabled voiceProcessingEnabled @endlink and @link AEAudioController::voiceProcessingAvailable voiceProcessingAvailable @endlink).
+        AEAudioControllerOptionUseVoiceProcessing       = 1 << 2,
+        /// Whether to use the the actual hardware sample rate instead of converting.
+        AEAudioControllerOptionUseHardwareSampleRate    = 1 << 3,
+        /// Enable audio input from Bluetooth devices.
+        AEAudioControllerOptionEnableBluetoothInput     = 1 << 4,
+        /// Whether to allow mixing audio with other apps.
+        AEAudioControllerOptionAllowMixingWithOtherApps = 1 << 5,
+        /// Default options
+        AEAudioControllerOptionDefaults =
         AEAudioControllerOptionEnableOutput | AEAudioControllerOptionAllowMixingWithOtherApps,
-} AEAudioControllerOptions;
-
-/*!
- * Main controller class
- *
- *  Use:
- *
- *  1. [Initialise](initWithAudioDescription:), with the desired audio format.
- *  2. Set required parameters.
- *  3. Add channels, input receivers, output receivers, timing receivers and filters, as required.
- *     Note that all these can be added/removed during operation as well.
- *  4. Call @link start: @endlink to begin processing audio.
- */
-@interface AEAudioController : NSObject
+    } AEAudioControllerOptions;
+    
+    /*!
+     * Main controller class
+     *
+     *  Use:
+     *
+     *  1. [Initialise](initWithAudioDescription:), with the desired audio format.
+     *  2. Set required parameters.
+     *  3. Add channels, input receivers, output receivers, timing receivers and filters, as required.
+     *     Note that all these can be added/removed during operation as well.
+     *  4. Call @link start: @endlink to begin processing audio.
+     */
+    @interface AEAudioController : NSObject
 
 #pragma mark - Setup and start/stop
 /** @name Setup and start/stop */
@@ -636,6 +636,14 @@ typedef enum {
 - (void)stop;
 
 /*!
+ * Maintain audio session and stop autio engine
+ * This is useful in cases where we need the audio session to remain active, while we save resources by stopping the audio thread
+ */
+- (void)maintainSessionAndStop;
+
+/*!
+ 
+ /*!
  * Set a new audio description
  *
  *  This will cause the audio controller to stop, teardown and recreate its rendering resources,
@@ -1068,9 +1076,9 @@ typedef enum {
  *  Input receivers receive audio that is being received by the microphone or another input device.
  *
  *  Note that the audio format provided to input receivers added via this method depends on the value
- *  of @link inputMode @endlink. 
+ *  of @link inputMode @endlink.
  *
- *  Check the audio buffer list parameters to determine the kind of audio you are receiving (for example, 
+ *  Check the audio buffer list parameters to determine the kind of audio you are receiving (for example,
  *  if you are using an interleaved format such as @link interleaved16BitStereoAudioDescription @endlink
  *  then the audio->mBuffers[0].mNumberOfChannels field will be 1 for mono, and 2 for stereo audio).  If you
  *  are using a non-interleaved format such as @link nonInterleaved16BitStereoAudioDescription @endlink, then
@@ -1163,7 +1171,7 @@ typedef enum {
 /*!
  * The asynchronous message queue used for safe communication between main and realtime thread
  *
- *  If @link running @endlink is NO, then message blocks passed to this instance will be performed 
+ *  If @link running @endlink is NO, then message blocks passed to this instance will be performed
  *  on the main thread instead of the realtime thread.
  */
 @property (nonatomic, readonly, strong) AEMessageQueue *messageQueue;
@@ -1171,7 +1179,7 @@ typedef enum {
 /*!
  * Send a message to the realtime thread asynchronously, if running, optionally receiving a response via a block.
  *
- *  This is a synchronization mechanism that allows you to schedule actions to be performed 
+ *  This is a synchronization mechanism that allows you to schedule actions to be performed
  *  on the realtime audio thread without any locking mechanism required.  Pass in a block, and
  *  the block will be performed on the realtime thread at the next polling interval.
  *
@@ -1195,7 +1203,7 @@ typedef enum {
 /*!
  * Send a message to the realtime thread synchronously, if running.
  *
- *  This is a synchronization mechanism that allows you to schedule actions to be performed 
+ *  This is a synchronization mechanism that allows you to schedule actions to be performed
  *  on the realtime audio thread without any locking mechanism required. Pass in a block, and
  *  the block will be performed on the realtime thread at the next polling interval.
  *
@@ -1222,9 +1230,9 @@ typedef enum {
 /*!
  * Send a message to the main thread asynchronously
  *
- *  This is a synchronization mechanism that allows you to schedule actions to be performed 
+ *  This is a synchronization mechanism that allows you to schedule actions to be performed
  *  on the main thread, without any locking or memory allocation.  Pass in a function pointer and
- *  optionally a pointer to data to be copied and passed to the handler, and the function will 
+ *  optionally a pointer to data to be copied and passed to the handler, and the function will
  *  be called on the realtime thread at the next polling interval.
  *
  *  Tip: To pass a pointer (including pointers to __unsafe_unretained Objective-C objects) through the
@@ -1383,7 +1391,7 @@ BOOL AECurrentThreadIsAudioThread(void);
  *
  *  When this is YES, your app's audio will be mixed with the output of other applications.
  *  If NO, then any other apps playing audio will be stopped when the audio engine is started.
- *  
+ *
  *  Note: If you are using remote controls with `UIApplication`'s `beginReceivingRemoteControlEvents`,
  *  setting this to YES will stop the remote controls working. This is an iOS limitation.
  *
@@ -1432,7 +1440,7 @@ BOOL AECurrentThreadIsAudioThread(void);
 @property (nonatomic, assign) BOOL boostBuiltInMicGainInMeasurementMode;
 #endif
 
-/*! 
+/*!
  * Mute output
  *
  *  Set to YES to mute all system output. Note that even if this is YES, playback
@@ -1479,7 +1487,7 @@ BOOL AECurrentThreadIsAudioThread(void);
  *  while simultaneously recording through the microphone.  Not suitable for music,
  *  but works adequately well for speech.
  *
- *  Note that changing this value will cause the entire audio system to be shut down 
+ *  Note that changing this value will cause the entire audio system to be shut down
  *  and restarted with the new setting, which will result in a break in audio playback.
  *
  *  Enabling voice processing in short buffer duration environments (< 0.01s) may cause
@@ -1500,10 +1508,10 @@ BOOL AECurrentThreadIsAudioThread(void);
  */
 @property (nonatomic, assign) BOOL voiceProcessingOnlyForSpeakerAndMicrophone;
 
-/*! 
+/*!
  * Input mode: How to handle incoming audio
  *
- *  If you are using an audio format with more than one channel, this setting 
+ *  If you are using an audio format with more than one channel, this setting
  *  defines how the system receives incoming audio.
  *
  *  See @link AEInputMode @endlink for a description of the available options.
@@ -1518,7 +1526,7 @@ BOOL AECurrentThreadIsAudioThread(void);
  *  When there are more than one input channel, you may specify which of the
  *  available channels are actually used as input. This is an array of NSNumbers,
  *  each referring to a channel (starting with the number 0 for the first channel).
- *  
+ *
  *  Specified input channels will be mapped to output chanels in the order they appear
  *  in this array, so the first channel specified will be mapped to the first output
  *  channel (the only output channel, if output is mono, or the left channel for stereo
@@ -1577,7 +1585,7 @@ BOOL AECurrentThreadIsAudioThread(void);
  *  If this property to YES (defautlt), the timestamps you see in the various
  *  callbacks will automatically account for input and output latency. If you set
  *  this property to NO and you wish to account for latency, you will need to use
- *  the @link inputLatency @endlink and @link outputLatency @endlink properties, 
+ *  the @link inputLatency @endlink and @link outputLatency @endlink properties,
  *  or their corresponding C functions @link AEAudioControllerInputLatency @endlink
  *  and @link AEAudioControllerOutputLatency @endlink yourself.
  *
@@ -1643,7 +1651,7 @@ BOOL AECurrentThreadIsAudioThread(void);
 
 /*!
  * The audio description defining the input audio format
- * 
+ *
  *  Note: This property is observable
  *
  *  See also @link inputMode @endlink and @link inputChannelSelection @endlink
@@ -1721,7 +1729,8 @@ NSTimeInterval AEAudioControllerOutputLatency(__unsafe_unretained AEAudioControl
 AudioTimeStamp AEAudioControllerCurrentAudioTimestamp(__unsafe_unretained AEAudioController *controller);
 
 @end
-
+    
 #ifdef __cplusplus
 }
 #endif
+
