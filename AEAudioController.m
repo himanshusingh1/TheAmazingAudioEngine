@@ -1162,7 +1162,7 @@ static OSStatus ioUnitRenderNotifyCallback(void *inRefCon, AudioUnitRenderAction
 
 - (void)maintainSessionAndStop {
     NSLog(@"TAAE: Stopping Engine");
-    
+    return;
     AECheckOSStatus(AUGraphStop(_audioGraph), "AUGraphStop");
 #if !TARGET_OS_IPHONE
     if ( _inputEnabled ) {
