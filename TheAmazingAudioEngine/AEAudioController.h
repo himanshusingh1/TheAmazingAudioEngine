@@ -640,7 +640,7 @@ extern "C" {
  * This is useful in cases where we need the audio session to remain active, while we save resources by stopping the audio thread
  */
 - (void)maintainSessionAndStop;
-
+-(void)hardStop;
 /*!
  
  /*!

@@ -1082,7 +1082,7 @@ static OSStatus ioUnitRenderNotifyCallback(void *inRefCon, AudioUnitRenderAction
 #endif
     }
     
-    // Start things up
+//     Start things up
     if ( !AECheckOSStatus(status, "AUGraphStart") ) {
         if ( !recoverFromErrors || ![self attemptRecoveryFromSystemError:error thenStart:YES] ) {
             NSError *startError = [NSError audioControllerErrorWithMessage:@"Couldn't start audio engine" OSStatus:status];
@@ -1135,7 +1135,7 @@ static OSStatus ioUnitRenderNotifyCallback(void *inRefCon, AudioUnitRenderAction
 - (void)stopInternal {
     NSLog(@"TAAE: Stopping Engine");
     
-    AECheckOSStatus(AUGraphStop(_audioGraph), "AUGraphStop");
+//    AECheckOSStatus(AUGraphStop(_audioGraph), "AUGraphStop");
 #if !TARGET_OS_IPHONE
     if ( _inputEnabled ) {
         AECheckOSStatus(AudioOutputUnitStop(_iAudioUnit), "AudioOutputUnitStop (OSX input)");
@@ -1163,6 +1163,26 @@ static OSStatus ioUnitRenderNotifyCallback(void *inRefCon, AudioUnitRenderAction
 - (void)maintainSessionAndStop {
     NSLog(@"TAAE: Stopping Engine");
     
+//    AECheckOSStatus(AUGraphStop(_audioGraph), "AUGraphStop");
+#if !TARGET_OS_IPHONE
+    if ( _inputEnabled ) {
+//        AECheckOSStatus(AudioOutputUnitStop(_iAudioUnit), "AudioOutputUnitStop (OSX input)");
+    }
+#endif
+    
+    if ( self.running ) {
+        // Ensure top IO unit is stopped (AUGraphStop may fail to stop it)
+//        AECheckOSStatus(AudioOutputUnitStop(_ioAudioUnit), "AudioOutputUnitStop");
+    }
+    
+    AEMessageQueueProcessMessagesOnRealtimeThread(_messageQueue);
+    [_messageQueue stopPolling];
+    
+    _started = NO;
+}
+-(void)hardStop{
+    NSLog(@"TAAE: Stopping Engine");
+    
     AECheckOSStatus(AUGraphStop(_audioGraph), "AUGraphStop");
 #if !TARGET_OS_IPHONE
     if ( _inputEnabled ) {
@@ -1180,7 +1200,6 @@ static OSStatus ioUnitRenderNotifyCallback(void *inRefCon, AudioUnitRenderAction
     
     _started = NO;
 }
-
 
 #pragma mark - Channel and channel group management
 
